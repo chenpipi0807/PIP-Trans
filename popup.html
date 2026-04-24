@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <title>PIP-Trans</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      width: 280px; padding: 16px;
+      font: 13px/1.5 -apple-system, "Segoe UI", sans-serif;
+      background: #0d0d0d; color: #cdd6f4;
+    }
+    h2 {
+      font-size: 15px; margin-bottom: 14px;
+      color: #39ff14; text-shadow: 0 0 10px #39ff1466;
+    }
+    .status-box {
+      background: #1a1a1a; border: 1px solid #2a2a2a;
+      border-radius: 8px; padding: 12px;
+      margin-bottom: 12px;
+    }
+    .label { font-size: 10px; color: #555; margin-bottom: 6px; }
+    .status { font-size: 13px; font-weight: 600; }
+    .status.loading { color: #f9e2af; }
+    .status.ready   { color: #39ff14; text-shadow: 0 0 6px #39ff1466; }
+    .status.error   { color: #f38ba8; }
+    .bar-wrap { margin-top: 8px; background: #222; border-radius: 4px; height: 4px; }
+    .bar { height: 4px; border-radius: 4px; background: #39ff14;
+           box-shadow: 0 0 6px #39ff14; transition: width .3s; }
+    .file { font-size: 10px; color: #444; margin-top: 4px; }
+    .tip {
+      font-size: 11px; color: #444; line-height: 1.8;
+      border-top: 1px solid #1e1e1e; padding-top: 10px;
+    }
+    kbd {
+      background: #1e1e1e; border: 1px solid #333;
+      border-radius: 3px; padding: 1px 5px; font-size: 11px; color: #aaa;
+    }
+    .model-info { font-size: 10px; color: #333; margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <h2>⚡ PIP-Trans</h2>
+
+  <div class="status-box">
+    <div class="label">本地翻译模型状态</div>
+    <div class="status loading" id="statusText">检测中…</div>
+    <div class="bar-wrap" id="barWrap" style="display:none">
+      <div class="bar" id="bar" style="width:0%"></div>
+    </div>
+    <div class="file" id="fileText"></div>
+  </div>
+
+  <div class="tip">
+    <kbd>Ctrl+.</kbd> 翻译选中文字<br>
+    <kbd>Ctrl+.</kbd> 无选中 → 整页翻译<br>
+    <kbd>再按一次</kbd> 或 <kbd>Esc</kbd> 清除
+  </div>
+
+  <div class="model-info">模型：Helsinki-NLP/opus-mt-en-zh</div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
