@@ -3,7 +3,8 @@ import { pipeline, env } from './transformers.min.js';
 env.allowRemoteModels  = true;
 env.allowLocalModels   = false;
 // WASM runtime files: point to jsDelivr so they load even when file is hosted locally
-env.backends.onnx.wasm.numThreads = 2;
+// numThreads must be 1 — offscreen documents lack SharedArrayBuffer (COOP/COEP headers)
+env.backends.onnx.wasm.numThreads = 1;
 env.backends.onnx.wasm.wasmPaths  = 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2/dist/';
 // Use Chinese mirror — huggingface.co is often blocked in China
 env.remoteHost = 'https://hf-mirror.com/';
@@ -38,8 +39,14 @@ function getTranslator() {
 
 // Pre-warm immediately so model is ready before first translate
 getTranslator()
-  .then(() => chrome.runtime.sendMessage({ type: 'model-ready' }).catch(() => {}))
-  .catch(err => chrome.runtime.sendMessage({ type: 'model-error', message: err.message }).catch(() => {}));
+  .then(() => {
+    chrome.runtime.sendMessage({ type: 'model-ready' }).catch(() => {});
+  })
+  .catch(err => {
+    const msg = err?.message || String(err);
+    chrome.runtime.sendMessage({ type: 'model-error', message: msg }).catch(() => {});
+    console.error('[PIP-Trans] model init failed:', msg);
+  });
 
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg.type !== 'offscreen-translate') return;
