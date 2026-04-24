@@ -1,2 +1,8 @@
 <!DOCTYPE html>
-<script type="module" src="offscreen.js"></script>
+<html><head><meta charset="UTF-8"></head>
+<body>
+  <!-- Sandboxed iframe: WASM runs here under relaxed sandbox CSP -->
+  <iframe id="ml-sandbox" src="sandbox.html" sandbox="allow-scripts" style="display:none"></iframe>
+  <script src="offscreen.js"></script>
+</body>
+</html>

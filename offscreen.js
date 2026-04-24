@@ -1,57 +1,61 @@
-import { pipeline, env } from './transformers.min.js';
+// Bridge between chrome.runtime (background.js) and the sandboxed ML iframe.
+// This file has no transformers.js / WASM — all inference runs inside sandbox.js.
 
-env.allowRemoteModels  = true;
-env.allowLocalModels   = false;
-// numThreads must be 1 — offscreen docs lack SharedArrayBuffer (no COOP/COEP headers)
-env.backends.onnx.wasm.numThreads = 1;
-// WASM binaries: served from jsDelivr since local relative path doesn't resolve in extension context
-env.backends.onnx.wasm.wasmPaths  = 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2/dist/';
-// Use Chinese mirror — huggingface.co is blocked in China
-env.remoteHost = 'https://hf-mirror.com/';
+const sandbox = document.getElementById('ml-sandbox');
 
-const MODEL = 'Xenova/opus-mt-en-zh';
-let translatorPromise = null;
+// Pending translate requests: id → { resolve, reject }
+let nextId = 0;
+const pending = new Map();
 
-function setStatus(status, extra = {}) {
-  // Write directly to storage — bypasses service worker sleep timing issues
-  chrome.storage.local.set({ modelStatus: status, ...extra });
-}
+// ── Messages from sandbox → chrome.storage + pending resolvers ───────────────
+window.addEventListener('message', (event) => {
+  const msg = event.data;
+  if (!msg || !msg.type) return;
 
-function getTranslator() {
-  if (!translatorPromise) {
-    translatorPromise = pipeline('translation_en_to_zh', MODEL, {
-      progress_callback(info) {
-        if (info.status === 'progress' || info.status === 'download') {
-          setStatus('loading', {
-            modelProgress: Math.round(info.progress ?? 0),
-            modelFile: info.file ?? '',
-          });
-        } else if (info.status === 'initiate') {
-          setStatus('loading', { modelProgress: 0, modelFile: info.file ?? '' });
-        } else if (info.status === 'ready') {
-          setStatus('ready', { modelProgress: 100 });
-        }
-      },
+  if (msg.type === 'model-ready') {
+    chrome.storage.local.set({ modelStatus: 'ready', modelProgress: 100 });
+
+  } else if (msg.type === 'model-progress') {
+    chrome.storage.local.set({
+      modelStatus: 'loading',
+      modelProgress: msg.percent,
+      modelFile: msg.file ?? '',
     });
+
+  } else if (msg.type === 'model-error') {
+    chrome.storage.local.set({ modelStatus: 'error', modelError: msg.message });
+
+  } else if (msg.type === 'translated') {
+    const p = pending.get(msg.id);
+    if (p) { pending.delete(msg.id); p.resolve(msg.text); }
+
+  } else if (msg.type === 'translate-error') {
+    const p = pending.get(msg.id);
+    if (p) { pending.delete(msg.id); p.reject(new Error(msg.message)); }
   }
-  return translatorPromise;
+});
+
+// ── Send a translate request to sandbox, return a Promise ────────────────────
+function translateViaSandbox(text) {
+  return new Promise((resolve, reject) => {
+    const id = ++nextId;
+    pending.set(id, { resolve, reject });
+    sandbox.contentWindow.postMessage({ type: 'translate', id, text }, '*');
+    setTimeout(() => {
+      if (pending.has(id)) {
+        pending.delete(id);
+        reject(new Error('翻译超时（60s）'));
+      }
+    }, 60000);
+  });
 }
 
-// Pre-warm immediately so model is ready before first translate
-getTranslator()
-  .then(() => setStatus('ready', { modelProgress: 100 }))
-  .catch(err => {
-    const msg = err?.message || String(err);
-    setStatus('error', { modelError: msg });
-    console.error('[PIP-Trans] model init failed:', msg);
-  });
-
+// ── chrome.runtime handler (from background.js) ───────────────────────────────
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg.type !== 'offscreen-translate') return;
 
-  getTranslator()
-    .then(translator => translator(msg.text, { max_new_tokens: 512 }))
-    .then(result => sendResponse({ text: result[0].translation_text }))
+  translateViaSandbox(msg.text)
+    .then(text => sendResponse({ text }))
     .catch(err => sendResponse({ error: err.message }));
 
   return true; // keep channel open for async response
