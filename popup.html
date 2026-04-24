@@ -20,14 +20,8 @@
       margin-bottom: 12px;
     }
     .label { font-size: 10px; color: #555; margin-bottom: 6px; }
-    .status { font-size: 13px; font-weight: 600; }
-    .status.loading { color: #f9e2af; }
-    .status.ready   { color: #39ff14; text-shadow: 0 0 6px #39ff1466; }
-    .status.error   { color: #f38ba8; }
-    .bar-wrap { margin-top: 8px; background: #222; border-radius: 4px; height: 4px; }
-    .bar { height: 4px; border-radius: 4px; background: #39ff14;
-           box-shadow: 0 0 6px #39ff14; transition: width .3s; }
-    .file { font-size: 10px; color: #444; margin-top: 4px; }
+    .status { font-size: 13px; font-weight: 600; color: #39ff14;
+              text-shadow: 0 0 6px #39ff1466; }
     .tip {
       font-size: 11px; color: #444; line-height: 1.8;
       border-top: 1px solid #1e1e1e; padding-top: 10px;
@@ -36,19 +30,15 @@
       background: #1e1e1e; border: 1px solid #333;
       border-radius: 3px; padding: 1px 5px; font-size: 11px; color: #aaa;
     }
-    .model-info { font-size: 10px; color: #333; margin-top: 10px; }
+    .api-info { font-size: 10px; color: #333; margin-top: 10px; }
   </style>
 </head>
 <body>
   <h2>⚡ PIP-Trans</h2>
 
   <div class="status-box">
-    <div class="label">本地翻译模型状态</div>
-    <div class="status loading" id="statusText">检测中…</div>
-    <div class="bar-wrap" id="barWrap" style="display:none">
-      <div class="bar" id="bar" style="width:0%"></div>
-    </div>
-    <div class="file" id="fileText"></div>
+    <div class="label">翻译服务</div>
+    <div class="status">✓ 在线翻译就绪</div>
   </div>
 
   <div class="tip">
@@ -57,8 +47,6 @@
     <kbd>再按一次</kbd> 或 <kbd>Esc</kbd> 清除
   </div>
 
-  <div class="model-info">模型：Helsinki-NLP/opus-mt-en-zh</div>
-
-  <script src="popup.js"></script>
+  <div class="api-info">由 MyMemory 免费 API 提供翻译</div>
 </body>
 </html>

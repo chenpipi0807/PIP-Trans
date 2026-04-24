@@ -1,48 +1,21 @@
-// ── Offscreen document ────────────────────────────────────────────────────────
-async function ensureOffscreen() {
-  if (await chrome.offscreen.hasDocument()) return;
-  await chrome.offscreen.createDocument({
-    url:           chrome.runtime.getURL('offscreen.html'),
-    reasons:       ['WORKERS'],
-    justification: 'Transformers.js translation model (opus-mt-en-zh)',
-  });
-}
-
-// Warm up model when extension starts
-chrome.runtime.onStartup.addListener(ensureOffscreen);
-chrome.runtime.onInstalled.addListener(ensureOffscreen);
-
-// ── Message handler ────────────────────────────────────────────────────────────
-// Handles both status messages from offscreen AND translate requests from content.
-// Using sendMessage (not ports) keeps the service worker alive until sendResponse fires.
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
-  if (msg.type === 'translate') {
-    ensureOffscreen()
-      .then(() => {
-        chrome.runtime.sendMessage(
-          { type: 'offscreen-translate', text: msg.text },
-          (res) => {
-            if (chrome.runtime.lastError || !res) {
-              sendResponse({ error: '翻译失败，请稍后重试' });
-            } else if (res.error) {
-              sendResponse({ error: res.error });
-            } else {
-              sendResponse({ text: res.text });
-            }
-          }
-        );
-      })
-      .catch(err => sendResponse({ error: err.message }));
-    return true; // async — keep channel open
-  }
-  // Status relay messages from offscreen (kept for legacy compat)
-  if (msg.type === 'model-ready') {
-    chrome.storage.local.set({ modelStatus: 'ready', modelProgress: 100 });
-  } else if (msg.type === 'model-progress') {
-    chrome.storage.local.set({ modelStatus: 'loading', modelProgress: msg.percent, modelFile: msg.file });
-  } else if (msg.type === 'model-error') {
-    chrome.storage.local.set({ modelStatus: 'error', modelError: msg.message });
-  }
+  if (msg.type !== 'translate') return;
+
+  const url = 'https://api.mymemory.translated.net/get?' +
+    new URLSearchParams({ q: msg.text, langpair: 'en|zh-CN' });
+
+  fetch(url)
+    .then(r => r.json())
+    .then(data => {
+      if (data.responseStatus === 200) {
+        sendResponse({ text: data.responseData.translatedText });
+      } else {
+        sendResponse({ error: '翻译失败: ' + (data.responseDetails || data.responseStatus) });
+      }
+    })
+    .catch(err => sendResponse({ error: '网络错误: ' + err.message }));
+
+  return true; // async — keep channel open
 });
 
 // ── Icon ──────────────────────────────────────────────────────────────────────

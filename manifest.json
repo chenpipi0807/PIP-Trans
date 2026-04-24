@@ -1,17 +1,10 @@
 {
   "manifest_version": 3,
   "name": "PIP-Trans",
-  "version": "2.0",
-  "description": "选中文字按 Ctrl+. 翻译（本地模型，无需 API）",
-  "permissions": ["storage", "offscreen"],
-  "host_permissions": ["<all_urls>"],
-  "sandbox": {
-    "pages": ["sandbox.html"]
-  },
-  "content_security_policy": {
-    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'",
-    "sandbox": "sandbox allow-scripts allow-forms allow-popups allow-modals; script-src blob: filesystem: 'unsafe-eval'"
-  },
+  "version": "2.1",
+  "description": "选中文字按 Ctrl+. 翻译（免费在线 API，无需配置）",
+  "permissions": ["storage"],
+  "host_permissions": ["https://api.mymemory.translated.net/"],
   "background": {
     "service_worker": "background.js"
   },
