@@ -86,38 +86,41 @@
     return { x: window.innerWidth - 390, y: 70 };
   }
 
-  // ── Streaming request (for popup) ─────────────────────────────────────────
-  function requestChunk(text, block) {
-    return new Promise((resolve) => {
-      let port;
-      try { port = chrome.runtime.connect({ name: 'pip-trans' }); }
-      catch (_) { block.error('请刷新页面后重试'); resolve(); return; }
-      block.start();
-      port.postMessage({ type: 'translate', text });
-      port.onMessage.addListener(msg => {
-        if      (msg.type === 'chunk') block.append(msg.content);
-        else if (msg.type === 'done')  { block.done(); port.disconnect(); resolve(); }
-        else if (msg.type === 'error') { block.error(msg.message); port.disconnect(); resolve(); }
-      });
-      port.onDisconnect.addListener(() => resolve());
+  // ── Translation request ────────────────────────────────────────────────────
+  // Uses sendMessage (not ports) — Chrome keeps the service worker alive until
+  // sendResponse fires, preventing the port-closed-before-response error.
+  function translateText(text) {
+    return new Promise((resolve, reject) => {
+      try {
+        chrome.runtime.sendMessage({ type: 'translate', text }, (res) => {
+          if (chrome.runtime.lastError) {
+            reject(new Error('请刷新页面后重试'));
+          } else if (!res || res.error) {
+            reject(new Error(res?.error || '翻译失败'));
+          } else {
+            resolve(res.text);
+          }
+        });
+      } catch (_) {
+        reject(new Error('请刷新页面后重试'));
+      }
     });
   }
 
-  // ── Buffered request (for in-place, no streaming flash) ───────────────────
-  function fetchOne(text) {
-    return new Promise((resolve) => {
-      let port;
-      try { port = chrome.runtime.connect({ name: 'pip-trans' }); }
-      catch (_) { resolve(null); return; }
-      let buf = '';
-      port.postMessage({ type: 'translate', text });
-      port.onMessage.addListener(msg => {
-        if      (msg.type === 'chunk') buf += msg.content;
-        else if (msg.type === 'done')  { port.disconnect(); resolve(buf); }
-        else if (msg.type === 'error') { port.disconnect(); resolve(null); }
-      });
-      port.onDisconnect.addListener(() => resolve(buf || null));
-    });
+  async function requestChunk(text, block) {
+    block.start();
+    try {
+      const result = await translateText(text);
+      block.append(result);
+      block.done();
+    } catch (err) {
+      block.error(err.message);
+    }
+  }
+
+  async function fetchOne(text) {
+    try { return await translateText(text); }
+    catch { return null; }
   }
 
   // ── Chunk splitting for popup mode ────────────────────────────────────────

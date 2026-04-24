@@ -12,46 +12,37 @@ async function ensureOffscreen() {
 chrome.runtime.onStartup.addListener(ensureOffscreen);
 chrome.runtime.onInstalled.addListener(ensureOffscreen);
 
-// ── Model status → storage (for popup to read) ────────────────────────────────
-let modelStatus = 'loading'; // loading | ready | error
-
-chrome.runtime.onMessage.addListener((msg) => {
+// ── Message handler ────────────────────────────────────────────────────────────
+// Handles both status messages from offscreen AND translate requests from content.
+// Using sendMessage (not ports) keeps the service worker alive until sendResponse fires.
+chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+  if (msg.type === 'translate') {
+    ensureOffscreen()
+      .then(() => {
+        chrome.runtime.sendMessage(
+          { type: 'offscreen-translate', text: msg.text },
+          (res) => {
+            if (chrome.runtime.lastError || !res) {
+              sendResponse({ error: '翻译失败，请稍后重试' });
+            } else if (res.error) {
+              sendResponse({ error: res.error });
+            } else {
+              sendResponse({ text: res.text });
+            }
+          }
+        );
+      })
+      .catch(err => sendResponse({ error: err.message }));
+    return true; // async — keep channel open
+  }
+  // Status relay messages from offscreen (kept for legacy compat)
   if (msg.type === 'model-ready') {
-    modelStatus = 'ready';
     chrome.storage.local.set({ modelStatus: 'ready', modelProgress: 100 });
   } else if (msg.type === 'model-progress') {
     chrome.storage.local.set({ modelStatus: 'loading', modelProgress: msg.percent, modelFile: msg.file });
   } else if (msg.type === 'model-error') {
-    modelStatus = 'error';
     chrome.storage.local.set({ modelStatus: 'error', modelError: msg.message });
   }
-});
-
-// ── Translation via port (content script → background → offscreen) ─────────────
-chrome.runtime.onConnect.addListener((port) => {
-  if (port.name !== 'pip-trans') return;
-
-  port.onMessage.addListener(async (msg) => {
-    if (msg.type !== 'translate') return;
-
-    await ensureOffscreen();
-
-    chrome.runtime.sendMessage(
-      { type: 'offscreen-translate', text: msg.text },
-      (res) => {
-        if (chrome.runtime.lastError || !res) {
-          port.postMessage({ type: 'error', message: '翻译失败，请稍后重试' });
-          return;
-        }
-        if (res.error) {
-          port.postMessage({ type: 'error', message: res.error });
-        } else {
-          port.postMessage({ type: 'chunk', content: res.text });
-          port.postMessage({ type: 'done' });
-        }
-      }
-    );
-  });
 });
 
 // ── Icon ──────────────────────────────────────────────────────────────────────
