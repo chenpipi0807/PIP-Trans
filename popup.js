@@ -20,7 +20,7 @@ function render(data) {
     statusText.className   = 'status loading';
     barWrap.style.display  = 'block';
     bar.style.width        = pct + '%';
-    fileText.textContent   = data.modelFile ? `正在下载：${data.modelFile}` : '首次使用需下载约 300MB，请稍候';
+    fileText.textContent   = data.modelFile ? `正在下载：${data.modelFile}` : '首次使用需下载约 300MB（来自 hf-mirror.com）';
   }
 }
 
